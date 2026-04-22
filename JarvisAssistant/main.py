@@ -6,7 +6,6 @@ import edge_tts
 import mss
 from PIL import Image
 from groq import Groq
-import google.generativeai as genai
 from dotenv import load_dotenv
 from playsound3 import playsound
 import customtkinter as ctk
@@ -16,7 +15,6 @@ import numpy as np
 import queue
 import base64
 import io
-import sys
 import traceback
 import uuid
 import re
@@ -26,15 +24,10 @@ import re
 # ═══════════════════════════════════════════════
 load_dotenv()
 GROQ_KEY = os.getenv("GROQ_API_KEY")
-GEMINI_KEY = os.getenv("GEMINI_API_KEY")
 
 if not GROQ_KEY:
     print("UYARI: GROQ_API_KEY bulunamadı!")
-if not GEMINI_KEY:
-    print("UYARI: GEMINI_API_KEY bulunamadı!")
-
-client = Groq(api_key=GROQ_KEY)
-genai.configure(api_key=GEMINI_KEY)
+client = Groq(api_key=GROQ_KEY) if GROQ_KEY else None
 
 # Modeller
 VISION_MODEL = "meta-llama/llama-4-scout-17b-16e-instruct"
@@ -69,6 +62,7 @@ Hangi butonlar, menüler, sekmeler var?
 monitor_active = False   # Ekran İZLEME (proaktif tarama)
 mic_active = False       # Mikrofon dinleme
 is_processing = False    # İşlem kilidi (aynı anda 1 istek)
+processing_lock = threading.Lock()
 q = queue.Queue()
 conversation_history = []
 
@@ -236,12 +230,15 @@ Sol alttaki Başlat ikonuna tıklayın."""
         ]
     })
     
-    try:
-        response = client.chat.completions.create(model=VISION_MODEL, messages=messages, max_tokens=250)
-        answer = response.choices[0].message.content.strip()
-    except Exception as e:
-        print("Groq Vision Hatası:", e)
-        answer = "Görüntü analizinde sorun çıktı."
+    if client is None:
+        answer = "Groq API anahtarı ayarlanmadığı için görüntü analizi yapılamıyor."
+    else:
+        try:
+            response = client.chat.completions.create(model=VISION_MODEL, messages=messages, max_tokens=250)
+            answer = response.choices[0].message.content.strip()
+        except Exception as e:
+            print("Groq Vision Hatası:", e)
+            answer = "Görüntü analizinde sorun çıktı."
 
     conversation_history.append({"role": "user", "content": user_prompt})
     conversation_history.append({"role": "assistant", "content": answer})
@@ -255,8 +252,15 @@ def ask_text_only(user_prompt):
     messages = [{"role": "system", "content": JARVIS_SYSTEM_PROMPT}]
     messages += conversation_history[-4:]
     messages.append({"role": "user", "content": user_prompt})
-    response = client.chat.completions.create(model=TEXT_MODEL, messages=messages, max_tokens=300)
-    answer = response.choices[0].message.content.strip()
+    if client is None:
+        answer = "Groq API anahtarı ayarlanmadığı için metin yanıtı üretilemiyor."
+    else:
+        try:
+            response = client.chat.completions.create(model=TEXT_MODEL, messages=messages, max_tokens=300)
+            answer = response.choices[0].message.content.strip()
+        except Exception as e:
+            print("Groq Text Hatası:", e)
+            answer = "Metin yanıtı alınırken bir sorun oluştu."
     conversation_history.append({"role": "user", "content": user_prompt})
     conversation_history.append({"role": "assistant", "content": answer})
     if len(conversation_history) > 10:
@@ -264,6 +268,8 @@ def ask_text_only(user_prompt):
     return answer
 
 def transcribe_audio(wav_path):
+    if client is None:
+        raise RuntimeError("Groq API anahtarı ayarlanmadığı için ses çözümlenemiyor.")
     with open(wav_path, "rb") as f:
         transcription = client.audio.transcriptions.create(
             file=("audio.wav", f.read()),
@@ -280,18 +286,19 @@ def monitor_loop():
     global is_processing
     while True:
         try:
-            if monitor_active and not is_processing:
+            if monitor_active and processing_lock.acquire(blocking=False):
                 is_processing = True
                 try:
                     img_b64 = capture_screen_base64()
                     prompt = "Ekrana bak. Bariz HATA (exception, error, crash) varsa 1 cümleyle Türkçe uyar. Hata yoksa sadece 'ALL_GOOD' yaz."
                     answer = ask_with_screen(prompt, img_b64)
-                    if "ALL_GOOD" not in answer and len(answer) > 3:
+                    if "ALL_GOOD" not in answer.upper() and len(answer) > 3:
                         speak_text(answer)
                 except Exception as e:
                     print(f"Monitor Hatası: {e}")
                 finally:
                     is_processing = False
+                    processing_lock.release()
         except Exception as e:
             print(f"Monitor Loop Crash: {e}")
             is_processing = False
@@ -368,6 +375,9 @@ def continuous_mic_loop():
                                     _restore_status()
                                     continue
                                 
+                                if not processing_lock.acquire(blocking=False):
+                                    _restore_status()
+                                    continue
                                 is_processing = True
                                 try:
                                     write("temp_voice.wav", fs, final_audio)
@@ -412,6 +422,7 @@ def continuous_mic_loop():
                                         time.sleep(3)
                                 finally:
                                     is_processing = False
+                                    processing_lock.release()
                                     _restore_status()
                 except Exception as e:
                     print(f"Mic iç döngü hatası: {e}")

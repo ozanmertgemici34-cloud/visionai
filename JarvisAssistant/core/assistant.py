@@ -38,6 +38,8 @@ KURALLAR:
 - Türkçe yanıt ver.
 - next_step en fazla 2 cümle olsun.
 - Ekran odaklı sorularda buton/yazı isimlerini aynen kullan.
+- Kullanıcı belli bir uygulamayı (ör: Steam) soruyorsa, önce ekranda o uygulamayı arayıp onun içinden yönlendir.
+- Ekranda doğrudan ilgili uygulama görünüyorsa, genel Windows ayar yoluna yönlendirme yapma.
 - Emin değilsen needs_confirmation=true dön.
 """
 
@@ -91,8 +93,8 @@ class JarvisAssistant:
 
     def capture_screen_base64(self) -> str:
         with mss.mss() as sct:
-            monitor_index = 1 if len(sct.monitors) > 1 else 0
-            monitor = sct.monitors[monitor_index]
+            # monitor[0] = sanal birleşik ekran (çoklu monitörde tüm yüzey).
+            monitor = sct.monitors[0]
             sct_img = sct.grab(monitor)
             img = Image.frombytes("RGB", sct_img.size, sct_img.bgra, "raw", "BGRX")
             img = img.resize((1280, 720), Image.BILINEAR)
@@ -100,9 +102,33 @@ class JarvisAssistant:
             img.save(buffer, format="JPEG", quality=80)
             return base64.standard_b64encode(buffer.getvalue()).decode("utf-8")
 
+    def is_screen_related(self, user_prompt: str) -> bool:
+        prompt = (user_prompt or "").lower()
+        screen_words = (
+            "ekran",
+            "burada",
+            "şu pencere",
+            "bu pencere",
+            "şuna tıkla",
+            "görüyor musun",
+            "ayarlar",
+            "menü",
+            "sekme",
+            "steam",
+            "discord",
+            "chrome",
+            "uygulama",
+        )
+        return any(word in prompt for word in screen_words)
+
     def _compose_messages(self, user_prompt: str, img_b64: str | None = None) -> list[dict]:
         messages = [{"role": "system", "content": JARVIS_SYSTEM_PROMPT}]
-        messages.extend(self.memory.recent_conversations(limit=8))
+        mode = "screen" if img_b64 else "text"
+        # Eski konuya kilitlenmeyi azaltmak için aynı mod + sorguya yakın geçmişi al.
+        contextual_history = self.memory.recent_conversations(limit=6, mode=mode, query=user_prompt)
+        if len(contextual_history) < 2:
+            contextual_history = self.memory.recent_conversations(limit=4, mode=mode)
+        messages.extend(contextual_history)
         if img_b64:
             messages.append(
                 {
@@ -138,8 +164,8 @@ class JarvisAssistant:
         if parsed.needs_confirmation and parsed.confidence < 0.65:
             answer = f"{answer} (Eminlik: %{int(parsed.confidence * 100)}. Onaylıyor musun?)"
 
-        self.memory.add_conversation("user", user_prompt)
-        self.memory.add_conversation("assistant", answer)
+        self.memory.add_conversation("user", user_prompt, mode="screen")
+        self.memory.add_conversation("assistant", answer, mode="screen")
         self._store_actions(answer)
         return answer
 
@@ -158,8 +184,8 @@ class JarvisAssistant:
         if parsed.needs_confirmation and parsed.confidence < 0.65:
             answer = f"{answer} (Eminlik: %{int(parsed.confidence * 100)}. Onaylıyor musun?)"
 
-        self.memory.add_conversation("user", user_prompt)
-        self.memory.add_conversation("assistant", answer)
+        self.memory.add_conversation("user", user_prompt, mode="text")
+        self.memory.add_conversation("assistant", answer, mode="text")
         self._store_actions(answer)
         return answer
 
@@ -276,7 +302,8 @@ class JarvisAssistant:
                                         self.restore_status()
                                         continue
 
-                                    if self.state.monitor_active:
+                                    use_screen = self.state.monitor_active and self.is_screen_related(user_text)
+                                    if use_screen:
                                         img_b64 = self.capture_screen_base64()
                                         answer = self.ask_with_screen(user_text, img_b64)
                                     else:

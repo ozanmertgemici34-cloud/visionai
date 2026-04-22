@@ -20,11 +20,16 @@ class MemoryStore:
                 CREATE TABLE IF NOT EXISTS conversations (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     role TEXT NOT NULL,
+                    mode TEXT NOT NULL DEFAULT 'text',
                     content TEXT NOT NULL,
                     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
                 )
                 """
             )
+            # Backward-compatibility for older DB files created before `mode` existed.
+            cols = [row[1] for row in conn.execute("PRAGMA table_info(conversations)").fetchall()]
+            if "mode" not in cols:
+                conn.execute("ALTER TABLE conversations ADD COLUMN mode TEXT NOT NULL DEFAULT 'text'")
             conn.execute(
                 """
                 CREATE TABLE IF NOT EXISTS action_items (
@@ -37,21 +42,45 @@ class MemoryStore:
                 """
             )
 
-    def add_conversation(self, role: str, content: str) -> None:
+    def add_conversation(self, role: str, content: str, mode: str = "text") -> None:
         if not content.strip():
             return
         with self._conn() as conn:
             conn.execute(
-                "INSERT INTO conversations(role, content) VALUES(?, ?)",
-                (role, content.strip()),
+                "INSERT INTO conversations(role, mode, content) VALUES(?, ?, ?)",
+                (role, mode, content.strip()),
             )
 
-    def recent_conversations(self, limit: int = 8) -> list[dict]:
+    def recent_conversations(self, limit: int = 8, mode: str | None = None, query: str | None = None) -> list[dict]:
         with self._conn() as conn:
-            rows = conn.execute(
-                "SELECT role, content FROM conversations ORDER BY id DESC LIMIT ?",
-                (limit,),
-            ).fetchall()
+            if mode and query:
+                like = f"%{query.strip()}%"
+                rows = conn.execute(
+                    """
+                    SELECT role, content
+                    FROM conversations
+                    WHERE mode = ? AND content LIKE ?
+                    ORDER BY id DESC
+                    LIMIT ?
+                    """,
+                    (mode, like, limit),
+                ).fetchall()
+            elif mode:
+                rows = conn.execute(
+                    "SELECT role, content FROM conversations WHERE mode = ? ORDER BY id DESC LIMIT ?",
+                    (mode, limit),
+                ).fetchall()
+            elif query:
+                like = f"%{query.strip()}%"
+                rows = conn.execute(
+                    "SELECT role, content FROM conversations WHERE content LIKE ? ORDER BY id DESC LIMIT ?",
+                    (like, limit),
+                ).fetchall()
+            else:
+                rows = conn.execute(
+                    "SELECT role, content FROM conversations ORDER BY id DESC LIMIT ?",
+                    (limit,),
+                ).fetchall()
         return [{"role": role, "content": content} for role, content in reversed(rows)]
 
     def add_action_items(self, titles: Iterable[str]) -> int:

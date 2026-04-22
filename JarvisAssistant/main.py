@@ -1,3 +1,6 @@
+<<<<<<< codex/review-project-for-issues-and-solutions-vkli9c
+from app_ui import JarvisApp
+=======
 import os
 import time
 import threading
@@ -434,17 +437,8 @@ def continuous_mic_loop():
     except Exception as e:
         print(f"Mikrofon stream HATASI: {e}")
         print(traceback.format_exc())
+>>>>>>> main
 
 
 if __name__ == "__main__":
-    print("═══════════════════════════════════════")
-    print("  J.A.R.V.I.S v3.2 | Groq Ultimate Vision")
-    print("  Ses : EmelNeural (Türkçe)")
-    print("  AI  : Llama 4 Scout Vision + Whisper")
-    print("═══════════════════════════════════════")
-    print("  Ekran ON  + Mikrofon ON = Tam mod")
-    print("  Ekran OFF + Mikrofon ON = Sadece ses")
-    print("═══════════════════════════════════════")
-    threading.Thread(target=monitor_loop, daemon=True).start()
-    threading.Thread(target=continuous_mic_loop, daemon=True).start()
-    app.mainloop()
+    JarvisApp().run()

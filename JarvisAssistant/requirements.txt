@@ -1,8 +1,9 @@
-google-generativeai
+customtkinter
+edge-tts
+groq
 mss
-pyttsx3
-SpeechRecognition
-pyaudio
-pynput
 pillow
+playsound3
 python-dotenv
+scipy
+sounddevice

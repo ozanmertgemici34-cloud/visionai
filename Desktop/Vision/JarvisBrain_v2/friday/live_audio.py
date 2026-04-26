@@ -22,10 +22,26 @@ from PySide6.QtCore import QThread, Signal
 
 load_dotenv()
 
-MIC_RATE = 16000
 MIC_CHANNELS = 1
 MIC_DTYPE = "int16"
 MIC_CHUNK = 1024
+
+def _find_wdm_mic():
+    """Nahimic/Sonar bypass: WDM-KS üzerinden çalışan gerçek mikrofonu bul."""
+    try:
+        apis = sd.query_hostapis()
+        wdm_idx = next((i for i, a in enumerate(apis) if "WDM" in a["name"]), None)
+        if wdm_idx is not None:
+            for i, d in enumerate(sd.query_devices()):
+                if d["hostapi"] == wdm_idx and d["max_input_channels"] > 0:
+                    name = d["name"].lower()
+                    if "sonar" not in name and "output" not in name and "stereo" not in name:
+                        return i, int(d["default_samplerate"])
+    except Exception:
+        pass
+    return None, 16000
+
+MIC_DEVICE, MIC_RATE = _find_wdm_mic()
 
 SPEAKER_RATE = 24000
 SPEAKER_CHANNELS = 1
@@ -112,13 +128,16 @@ class LiveAudioThread(QThread):
             audio_bytes = indata.tobytes()
             loop.call_soon_threadsafe(mic_queue.put_nowait, audio_bytes)
 
-        stream = sd.InputStream(
+        stream_kwargs = dict(
             samplerate=MIC_RATE,
             channels=MIC_CHANNELS,
             dtype=MIC_DTYPE,
             blocksize=MIC_CHUNK,
             callback=mic_callback,
         )
+        if MIC_DEVICE is not None:
+            stream_kwargs["device"] = MIC_DEVICE
+        stream = sd.InputStream(**stream_kwargs)
         stream.start()
         try:
             while not self._stop_event.is_set():
@@ -128,7 +147,7 @@ class LiveAudioThread(QThread):
                     await session.send(
                         input=types.Blob(
                             data=chunk,
-                            mime_type="audio/pcm;rate=" + str(MIC_RATE),
+                            mime_type=f"audio/pcm;rate={MIC_RATE}",
                         )
                     )
                 except asyncio.TimeoutError:

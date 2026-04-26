@@ -62,24 +62,33 @@ class SttThread(QThread):
         speaking_started = False
         max_silence = int(SILENCE_SEC * RATE / CHUNK)
         max_total = int(MAX_SEC * RATE / CHUNK)
+        done_event = threading.Event()
+
+        def _cb(indata, frame_count, time_info, status):
+            nonlocal speaking_started, silence_chunks
+            chunk = indata.copy()
+            rms = float(np.sqrt(np.mean(chunk.astype(np.float32) ** 2)))
+            if rms > SILENCE_THRESH:
+                speaking_started = True
+                silence_chunks = 0
+                frames.append(chunk.tobytes())
+            elif speaking_started:
+                frames.append(chunk.tobytes())
+                silence_chunks += 1
+                if silence_chunks >= max_silence:
+                    done_event.set()
+            if len(frames) >= max_total:
+                done_event.set()
 
         try:
-            stream_kwargs = dict(samplerate=RATE, channels=1, dtype="int16", blocksize=CHUNK)
+            stream_kwargs = dict(
+                samplerate=RATE, channels=1, dtype="int16",
+                blocksize=CHUNK, callback=_cb,
+            )
             if MIC_DEVICE is not None:
                 stream_kwargs["device"] = MIC_DEVICE
-            with sd.InputStream(**stream_kwargs) as stream:
-                for _ in range(max_total):
-                    chunk, _ = stream.read(CHUNK)
-                    rms = float(np.sqrt(np.mean(chunk.astype(np.float32) ** 2)))
-                    if rms > SILENCE_THRESH:
-                        speaking_started = True
-                        silence_chunks = 0
-                        frames.append(chunk.tobytes())
-                    elif speaking_started:
-                        frames.append(chunk.tobytes())
-                        silence_chunks += 1
-                        if silence_chunks >= max_silence:
-                            break
+            with sd.InputStream(**stream_kwargs):
+                done_event.wait(timeout=MAX_SEC + 2)
 
             if not frames:
                 self.error.emit("timeout")

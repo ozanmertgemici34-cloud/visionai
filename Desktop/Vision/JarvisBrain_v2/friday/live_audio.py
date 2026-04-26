@@ -31,7 +31,7 @@ SPEAKER_RATE = 24000
 SPEAKER_CHANNELS = 1
 SPEAKER_DTYPE = "int16"
 
-LIVE_MODEL = "gemini-2.0-flash-live-001"
+LIVE_MODEL = "gemini-2.5-flash-native-audio-latest"
 
 VOICE_NAME = "Aoede"  # Mevcut sesler: Puck, Charon, Kore, Fenrir, Aoede
 

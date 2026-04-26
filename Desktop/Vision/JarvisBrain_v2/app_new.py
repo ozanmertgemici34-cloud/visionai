@@ -28,20 +28,54 @@ class SttThread(QThread):
     listening = Signal(bool)
 
     def run(self) -> None:
-        try:
-            import speech_recognition as sr  # type: ignore
-        except ImportError:
-            self.error.emit("SpeechRecognition kurulu değil: pip install SpeechRecognition")
-            return
+        import io
+        import wave
+        import numpy as np
+        import sounddevice as sd
+        import speech_recognition as sr
 
-        r = sr.Recognizer()
-        r.pause_threshold = 1.2
+        RATE = 16000
+        CHUNK = 1024
+        SILENCE_THRESH = 30       # RMS — int16 ölçeği, ortam ~0.5, ses ~50+
+        SILENCE_SEC = 1.5         # bu kadar sessizlik → kayıt biter
+        MAX_SEC = 12
+
         self.listening.emit(True)
+        frames = []
+        silence_chunks = 0
+        speaking_started = False
+        max_silence = int(SILENCE_SEC * RATE / CHUNK)
+        max_total = int(MAX_SEC * RATE / CHUNK)
+
         try:
-            with sr.Microphone() as source:
-                r.adjust_for_ambient_noise(source, duration=0.5)
-                audio = r.listen(source, timeout=8, phrase_time_limit=15)
-            text = r.recognize_google(audio, language="tr-TR")
+            with sd.InputStream(samplerate=RATE, channels=1, dtype="int16", blocksize=CHUNK) as stream:
+                for _ in range(max_total):
+                    chunk, _ = stream.read(CHUNK)
+                    rms = float(np.sqrt(np.mean(chunk.astype(np.float32) ** 2)))
+                    if rms > SILENCE_THRESH:
+                        speaking_started = True
+                        silence_chunks = 0
+                        frames.append(chunk.tobytes())
+                    elif speaking_started:
+                        frames.append(chunk.tobytes())
+                        silence_chunks += 1
+                        if silence_chunks >= max_silence:
+                            break
+
+            if not frames:
+                self.error.emit("timeout")
+                return
+
+            buf = io.BytesIO()
+            with wave.open(buf, "wb") as wf:
+                wf.setnchannels(1)
+                wf.setsampwidth(2)
+                wf.setframerate(RATE)
+                wf.writeframes(b"".join(frames))
+
+            audio_data = sr.AudioData(buf.getvalue(), RATE, 2)
+            recognizer = sr.Recognizer()
+            text = recognizer.recognize_google(audio_data, language="tr-TR")
             self.result.emit(text)
         except Exception as exc:
             self.error.emit(str(exc))

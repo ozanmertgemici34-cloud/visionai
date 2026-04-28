@@ -1,6 +1,4 @@
-<p align="center">
-  <img src="images/core-orange.png" width="800"/>
-</p>
+
 # 🧠 F.R.I.D.A.Y — Personal Desktop AI System
 
 > Not just an assistant. A system that thinks alongside you.
@@ -43,9 +41,7 @@ No manual switching. No interruptions.
 ---
 
 ## 🖥️ Interface
-<p align="center">
-  <img src="images/core-gold.png" width="600"/>
-</p>
+
 
 Instead of a traditional chat interface, F.R.I.D.A.Y. uses a reactive system UI:
 

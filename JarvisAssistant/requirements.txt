@@ -1,9 +1,0 @@
-customtkinter
-edge-tts
-groq
-mss
-pillow
-playsound3
-python-dotenv
-scipy
-sounddevice

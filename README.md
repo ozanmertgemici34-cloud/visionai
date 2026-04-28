@@ -60,6 +60,10 @@ The goal is to create an interface that feels responsive and alive.
 
 ## 🏗️ Architecture
 
+<p align="center">
+  <img src="images/core-orange.png" width="800"/>
+</p>
+
 - PySide6 + QML (UI layer)
 - Gemini Live Audio (voice interaction)
 - GPT / Gemini / Groq / Ollama (LLM layer)

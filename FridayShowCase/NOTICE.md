@@ -1,6 +1,6 @@
 # Notice
 
-This repository is a public showcase for JarvisBrain_v2 / F.R.I.D.A.Y. Desktop Assistant.
+This repository is a public showcase for  F.R.I.D.A.Y. Desktop Assistant.
 
 It does not contain the full application source code.
 

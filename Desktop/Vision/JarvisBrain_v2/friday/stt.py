@@ -100,9 +100,9 @@ def _get_whisper():
 
 def _record_audio(device: int | None, rate: int) -> np.ndarray | None:
     """VAD ile ses kaydet. Başarısız olursa None döndür."""
-    thresh = float(os.getenv("FRIDAY_STT_RMS", "60"))
-    silence_sec = 1.5
-    max_sec = 10.0
+    thresh = float(os.getenv("FRIDAY_STT_RMS", "200"))
+    silence_sec = 1.2
+    max_sec = 8.0
     chunk_secs = 0.3
 
     n_chunk = int(chunk_secs * rate)
@@ -207,15 +207,7 @@ class SttThread(QObject):
                 self.error.emit("timeout")
                 return
 
-            # Önce Google STT dene
-            try:
-                text = _transcribe_google(pcm)
-                self.result.emit(text)
-                return
-            except Exception as g_err:
-                print(f"[STT] Google başarısız: {g_err} — Whisper'a düşülüyor", flush=True)
-
-            # Whisper fallback
+            # Direkt Whisper (Google STT endpoint bozuk)
             try:
                 text = _transcribe_whisper(pcm)
                 if text:

@@ -1,4 +1,4 @@
-"""F.R.I.D.A.Y. — PySide6 + QML arayüz, Gemini 2.5 Flash + OpenAI fallback."""
+"""F.R.I.D.A.Y. — PySide6 + QML, Gemini Live Native Audio default mod."""
 
 from __future__ import annotations
 
@@ -10,30 +10,28 @@ from dotenv import load_dotenv
 load_dotenv()
 
 from PySide6.QtCore import QObject, QThread, QUrl, Signal, Slot
-from PySide6.QtGui import QIcon
 from PySide6.QtQml import QQmlApplicationEngine
 from PySide6.QtWidgets import QApplication
 
 from friday.brain import Brain
 from friday.live_audio import LiveAudioThread
-from friday.stt import SttThread
 import friday.tts_engine as tts
 
 
 _QML_PATH = Path(__file__).parent / "qt_ui" / "Main.qml"
 
 
-# ── Brain Thread ───────────────────────────────────────────────────────────────
+# ── Brain Thread (yazılı komutlar için fallback) ───────────────────────────────
 
 class BrainThread(QThread):
     response = Signal(str)
-    error = Signal(str)
+    error    = Signal(str)
     thinking = Signal(bool)
 
     def __init__(self, brain: Brain, text: str) -> None:
         super().__init__()
         self._brain = brain
-        self._text = text
+        self._text  = text
 
     def run(self) -> None:
         self.thinking.emit(True)
@@ -46,21 +44,18 @@ class BrainThread(QThread):
             self.thinking.emit(False)
 
 
-# ── QML ↔ Python köprüsü ─────────────────────────────────────────────────────
+# ── Bridge ────────────────────────────────────────────────────────────────────
 
 class Bridge(QObject):
-    """QML'den Python'a çağrılar bu sınıf üzerinden gelir."""
-
     def __init__(self, engine: QQmlApplicationEngine) -> None:
         super().__init__()
-        self._engine = engine
-        self._brain = Brain()
-        self._stt: SttThread | None = None
+        self._engine       = engine
+        self._brain        = Brain()
         self._brain_thread: BrainThread | None = None
-        self._live_thread: LiveAudioThread | None = None
-        self._live_active = False
+        self._live: LiveAudioThread | None = None
+        self._muted        = False
 
-    # ── QML'den çağrılacak slot'lar ──────────────────────────────────────────
+    # ── Slots (QML → Python) ─────────────────────────────────────────────────
 
     @Slot(str)
     def sendText(self, text: str) -> None:
@@ -68,24 +63,20 @@ class Bridge(QObject):
         if not text:
             return
         self._qml("addMessage", text, True)
-        self._run_brain(text)
 
-    @Slot()
-    def toggleListen(self) -> None:
-        if self._stt and self._stt.isRunning():
-            return
-        self._stt = SttThread()
-        self._stt.listening.connect(self._on_listening)
-        self._stt.result.connect(self._on_stt_result)
-        self._stt.error.connect(self._on_stt_error)
-        self._stt.start()
-
-    @Slot()
-    def toggleLive(self) -> None:
-        if self._live_active:
-            self._stop_live()
+        # Live oturum açıksa oradan gönder, değilse Brain'e düş
+        if self._live and self._live.isRunning():
+            self._live.send_text(text)
         else:
-            self._start_live()
+            self._run_brain(text)
+
+    @Slot()
+    def toggleMute(self) -> None:
+        self._muted = not self._muted
+        if self._live:
+            self._live.set_mute(self._muted)
+        self._qml("setMuted", self._muted)
+        self._qml("setStatus", "sessiz" if self._muted else "dinliyor")
 
     @Slot()
     def resetChat(self) -> None:
@@ -94,118 +85,115 @@ class Bridge(QObject):
         self._qml("setStatus", "sıfırlandı")
         self._qml("addMessage", "Konuşma geçmişi temizlendi.", False)
 
-    # ── İç yardımcılar ───────────────────────────────────────────────────────
+    # ── Live Audio yönetimi ──────────────────────────────────────────────────
+
+    def start_live(self) -> None:
+        if self._live and self._live.isRunning():
+            return
+        self._live = LiveAudioThread()
+        self._live.transcript.connect(lambda t: self._qml("addMessage", t, True))
+        self._live.assistant_text.connect(lambda t: self._qml("addMessage", t, False))
+        self._live.status.connect(lambda s: self._qml("setStatus", s))
+        self._live.speaking.connect(lambda s: self._qml("setSpeaking", s))
+        self._live.error.connect(self._on_live_error)
+        self._live.finished.connect(self._on_live_finished)
+        self._live.start()
+        self._qml("setLiveActive", True)
+
+        # Hatırlatıcı ateşlenince FRIDAY sesli söylesin
+        from friday.tools.reminder import register_fire_callback
+        live_ref = self._live
+        register_fire_callback(
+            lambda msg: live_ref.send_text(
+                f"Hatirlatici surest doldu: '{msg}'. Ozana sesli olarak hatırlat."
+            )
+        )
+
+        # Sistem uyarıları sesli gelsin
+        from friday.tools.system_alerts import register_speak_callback
+        register_speak_callback(lambda msg: live_ref.send_text(msg))
+
+    def _on_live_error(self, err: str) -> None:
+        print(f"[Live] {err}", flush=True)
+        self._qml("setStatus", "bağlantı hatası — yeniden deniyor…")
+
+    def _on_live_finished(self) -> None:
+        self._qml("setLiveActive", False)
+        self._qml("setStatus", "bağlantı kapandı")
+
+    # ── Brain fallback ───────────────────────────────────────────────────────
 
     def _run_brain(self, text: str) -> None:
         if self._brain_thread and self._brain_thread.isRunning():
             return
         t = BrainThread(self._brain, text)
         t.response.connect(self._on_brain_response)
-        t.error.connect(self._on_brain_error)
+        t.error.connect(lambda e: self._qml("addMessage", f"[Hata: {e}]", False))
         t.thinking.connect(lambda b: self._qml("setThinking", b))
         t.thinking.connect(lambda b: self._qml("setStatus", "düşünüyor…" if b else "hazır"))
         t.start()
         self._brain_thread = t
 
-    def _start_live(self) -> None:
-        self._live_active = True
-        self._qml("setLiveActive", True)
-        self._qml("setStatus", "Live başlıyor…")
-        self._qml("addMessage", "⚡ Gemini Native Audio başlatılıyor — konuşmaya hazırlanın.", False)
-
-        lt = LiveAudioThread()
-        lt.transcript.connect(lambda t: self._qml("addMessage", t, True))
-        lt.assistant_text.connect(lambda t: self._qml("addMessage", t, False))
-        lt.status.connect(lambda s: self._qml("setStatus", s))
-        lt.error.connect(self._on_live_error)
-        lt.speaking.connect(lambda s: self._qml("setStatus", "konuşuyor…" if s else "dinliyor…"))
-        lt.finished.connect(self._on_live_finished)
-        lt.start()
-        self._live_thread = lt
-
-    def _stop_live(self) -> None:
-        if self._live_thread:
-            self._live_thread.stop()
-        self._live_active = False
-        self._qml("setLiveActive", False)
-
-    def _greeting(self) -> None:
-        self._run_brain("Merhaba, kısaca kendini tanıt.")
-
-    # ── Slot'lar ─────────────────────────────────────────────────────────────
-
-    def _on_listening(self, active: bool) -> None:
-        self._qml("setListening", active)
-        self._qml("setStatus", "dinliyor…" if active else "hazır")
-
-    def _on_stt_result(self, text: str) -> None:
-        self._qml("setStatus", "anlaşıldı")
-        self._qml("addMessage", text, True)
-        self._run_brain(text)
-
-    def _on_stt_error(self, err: str) -> None:
-        self._qml("setStatus", "ses alınamadı")
-        if "timeout" not in err.lower():
-            self._qml("addMessage", f"[STT hatası: {err}]", False)
-
     def _on_brain_response(self, text: str) -> None:
         self._qml("addMessage", text, False)
         self._qml("setStatus", "hazır")
-        self._qml("setFallback", self._brain.using_fallback)
         threading.Thread(target=tts.speak, args=(text,), daemon=True).start()
 
-    def _on_brain_error(self, err: str) -> None:
-        self._qml("addMessage", f"[Hata: {err}]", False)
-        self._qml("setStatus", "hata")
-
-    def _on_live_error(self, err: str) -> None:
-        self._qml("addMessage", f"[Live hata: {err}]", False)
-        self._stop_live()
-        self._qml("setStatus", "Live hata")
-
-    def _on_live_finished(self) -> None:
-        self._live_active = False
-        self._qml("setLiveActive", False)
-        self._qml("setStatus", "Live mod kapandı")
-
-    # ── QML erişim yardımcıları ───────────────────────────────────────────────
+    # ── QML yardımcıları ─────────────────────────────────────────────────────
 
     def _root(self):
         roots = self._engine.rootObjects()
         return roots[0] if roots else None
 
-    def _qml(self, fn_name: str, *args) -> None:
+    def _qml(self, fn: str, *args) -> None:
         root = self._root()
         if root is None:
             return
         try:
-            getattr(root, fn_name)(*args)
+            getattr(root, fn)(*args)
         except Exception as e:
-            print(f"[bridge] QML çağrı hatası {fn_name}: {e}", flush=True)
+            print(f"[bridge] {fn}: {e}", flush=True)
 
 
-
-# ── Giriş noktası ────────────────────────────────────────────────────────────
+# ── Entry point ───────────────────────────────────────────────────────────────
 
 def main() -> None:
     app = QApplication(sys.argv)
     app.setApplicationName("FRIDAY")
-    app.setOrganizationName("Ozan")
 
     engine = QQmlApplicationEngine()
-
     bridge = Bridge(engine)
     engine.rootContext().setContextProperty("bridge", bridge)
-
+    engine.warnings.connect(lambda w: [print("QML:", x.toString()) for x in w])
     engine.load(QUrl.fromLocalFile(str(_QML_PATH)))
 
     if not engine.rootObjects():
         print("[FATAL] QML yüklenemedi:", _QML_PATH, flush=True)
         sys.exit(1)
 
-    # Startup selamlama
+    # Live Audio'yu otomatik başlat
     from PySide6.QtCore import QTimer
-    QTimer.singleShot(700, bridge._greeting)
+    QTimer.singleShot(500, bridge.start_live)
+
+    # FRIDAY kapanma callback'ini kaydet
+    from friday.tools.system_control import register_quit_callback
+    register_quit_callback(app.quit)
+
+    # Uygulama kapanmadan önce thread'i temiz durdur (Qt aboutToQuit sinyali)
+    def _cleanup_on_quit():
+        live = bridge._live
+        if live and live.isRunning():
+            live.stop()
+            # asyncio loop'u dışarıdan iptal et
+            if live._loop and not live._loop.is_closed():
+                live._loop.call_soon_threadsafe(live._loop.stop)
+            live.wait(3000)
+
+    app.aboutToQuit.connect(_cleanup_on_quit)
+
+    # Proaktif sistem izlemeyi başlat
+    from friday.tools.system_alerts import start_system_alerts
+    start_system_alerts()
 
     sys.exit(app.exec())
 

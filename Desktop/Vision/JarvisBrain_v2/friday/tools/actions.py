@@ -298,7 +298,7 @@ def open_website(url: str) -> str:
 
 def get_current_time() -> str:
     """Get the current date and time."""
-    now = datetime.datetime.now()
+    now = datetime.datetime.now().astimezone()
     return now.strftime("Tarih: %d %B %Y, Saat: %H:%M")
 
 
@@ -491,6 +491,13 @@ def media_prev() -> str:
 # ── All tools list (used by brain.py) ─────────────────────────────────────────
 
 from friday.tools.desktop import DESKTOP_TOOLS
+from friday.tools.memory_tools import MEMORY_TOOLS
+from friday.tools.filesystem import FILESYSTEM_TOOLS
+from friday.tools.system_control import SYSTEM_CONTROL_TOOLS
+from friday.tools.browser_automation import BROWSER_TOOLS
+from friday.tools.steam_tools import STEAM_TOOLS
+from friday.tools.reminder import REMINDER_TOOLS
+from friday.tools.quick_notes import QUICK_NOTE_TOOLS
 
 ALL_TOOLS = [
     open_application,
@@ -512,4 +519,4 @@ ALL_TOOLS = [
     media_play_pause,
     media_next,
     media_prev,
-] + DESKTOP_TOOLS
+] + DESKTOP_TOOLS + MEMORY_TOOLS + FILESYSTEM_TOOLS + SYSTEM_CONTROL_TOOLS + BROWSER_TOOLS + STEAM_TOOLS + REMINDER_TOOLS + QUICK_NOTE_TOOLS

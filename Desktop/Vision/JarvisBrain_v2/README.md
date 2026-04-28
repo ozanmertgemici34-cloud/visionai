@@ -1,138 +1,203 @@
-# JarvisBrain_v2 — Friday Integration
+# JarvisBrain_v2 — F.R.I.D.A.Y. Desktop Assistant
 
-This folder now includes the same core structure as `friday-tony-stark-demo`:
+JarvisBrain_v2 is a Windows-focused Turkish desktop assistant inspired by
+F.R.I.D.A.Y. It provides a PySide6 chat UI, microphone input, Gemini/OpenAI
+reasoning, text-to-speech, Gemini Live audio mode, and desktop automation tools.
 
-- `server.py` → FastMCP SSE server
-- `agent_friday.py` → LiveKit voice worker
-- `friday/` package → tools, prompts, resources, config
+The current codebase is a local desktop app. Older MCP/LiveKit/control-panel
+entry points mentioned in previous documentation are not present in this folder.
 
-## Run
+## Current Entry Point
 
-1. Install dependencies:
+Run the desktop app:
 
 ```powershell
 pip install -r requirements.txt
+python app_new.py
 ```
 
-2. Start MCP server:
+The app opens a dark F.R.I.D.A.Y. interface where you can:
 
-```powershell
-python server.py
-```
+- Type commands in Turkish.
+- Use the microphone button for short speech-to-text commands.
+- Use Live mode for Gemini Native Audio.
+- Hear responses through the TTS engine.
+- Let the assistant call desktop tools when a command requires real action.
 
-3. Start voice worker (new terminal):
-
-```powershell
-python agent_friday.py dev
-```
-
-## Windows "ethanplus-style" mode (no API key)
-
-If you want a flow closer to `ethanplusai/jarvis` but on Windows and without Claude/Fish keys:
-
-```powershell
-.\Use-Ethanplus-Mode.ps1
-```
-
-This sets a no-key preset in `.env`:
-- `STT_PROVIDER=faster_whisper`
-- `LLM_PROVIDER=ollama`
-- `TTS_PROVIDER=edge`
-- `FRIDAY_PROFILE=ethanplus`
-
-Then start normally:
-
-```powershell
-.\Run-JarvisBrain_v2.bat
-```
-
-## One-command launch (recommended)
-
-```powershell
-.\start.ps1
-```
-
-If you want stale port/process cleanup before launch:
-
-```powershell
-.\start.ps1 -Fresh
-```
-
-Desktop app mode (recommended): simply double-click:
+## Architecture
 
 ```text
-Run-JarvisBrain_v2.bat
+app_new.py
+  -> friday.brain.Brain
+       -> Gemini 2.5 Flash primary
+       -> OpenAI fallback after repeated Gemini failures
+       -> friday.tools.actions.ALL_TOOLS
+  -> friday.tts_engine.speak
+  -> friday.live_audio.LiveAudioThread
 ```
 
-This opens a stylish desktop interface (animated orb) where you can:
-- Start/stop FRIDAY stack
-- See live status (policy/ollama/profile)
-- Open Control Panel or LiveKit from UI buttons
-- Use "Start Direct Listen" to run microphone commands directly from the UI (without LiveKit)
+### `app_new.py`
 
-Legacy headless mode:
+Main PySide6 desktop UI. It owns the chat window, text input, microphone button,
+Live mode button, reset shortcut, worker threads, and TTS trigger.
+
+Normal microphone mode records audio with `sounddevice`, converts it to WAV, and
+uses `SpeechRecognition` Google STT with `tr-TR`.
+
+### `friday/brain.py`
+
+LLM orchestration layer. Gemini is the primary model:
+
+- Default Gemini model: `gemini-2.5-flash`
+- Default OpenAI fallback model: `gpt-4.1-mini`
+- Tool calling is enabled for both Gemini and OpenAI.
+- The system prompt requires Turkish, short answers, and real tool calls before
+  claiming an action was completed.
+
+### `friday/tools/actions.py`
+
+General assistant tools:
+
+- Open and close Windows applications.
+- Create folders and delete files/folders.
+- Open websites.
+- Get current time and system stats.
+- Fetch weather, Turkish news, world news, and web search results.
+- Control volume and media keys.
+- Discover installed apps from Start Menu shortcuts and the Windows registry.
+
+### `friday/tools/desktop.py`
+
+Desktop control tools using `pyautogui` and Gemini Vision:
+
+- Type text.
+- Press keys and hotkeys.
+- Click and right-click coordinates.
+- Scroll and wait.
+- Look at the screen with Gemini Vision.
+- Find a UI element from a screenshot and click it.
+- Write files directly or open them in Notepad.
+
+### `friday/live_audio.py`
+
+Gemini Native Audio mode. It streams microphone PCM directly to Gemini Live and
+plays PCM audio responses back through `sounddevice`.
+
+This mode bypasses the classic STT/TTS path:
 
 ```text
-Run-Headless.bat
+microphone PCM -> Gemini Live API -> audio response -> speakers
 ```
 
-Stop both services:
+### `friday/tts_engine.py`
 
-```powershell
-.\stop.ps1
+Text-to-speech fallback chain:
+
+1. Fish Audio, if `FISH_AUDIO_API_KEY` is configured.
+2. `edge-tts`, using `FRIDAY_TTS_VOICE`.
+3. `pyttsx3`, offline Windows fallback.
+
+## Environment
+
+Create a local `.env` file from `.env.example` and fill the keys you use.
+
+Important variables used by the current code:
+
+```env
+GEMINI_API_KEY=
+GOOGLE_API_KEY=
+OPENAI_API_KEY=
+GEMINI_LLM_MODEL=gemini-2.5-flash
+OPENAI_LLM_MODEL=gpt-4.1-mini
+FISH_AUDIO_API_KEY=
+FISH_AUDIO_VOICE_ID=
+FRIDAY_TTS_VOICE=tr-TR-EmelNeural
+FRIDAY_TTS_RATE=+6%
+FRIDAY_TTS_PITCH=+0Hz
+FRIDAY_TTS_VOLUME=+0%
 ```
 
-Control panel UI:
+`GEMINI_API_KEY` or `GOOGLE_API_KEY` is required for the main Gemini brain,
+Gemini Vision tools, and Live Audio mode. `OPENAI_API_KEY` is only needed for the
+fallback path.
 
-- [http://127.0.0.1:8030](http://127.0.0.1:8030)
+## Command Flow
 
-## Notes
+Normal text flow:
 
-- MCP endpoint: `http://127.0.0.1:8010/sse`
-- LiveKit credentials are loaded from `.env`
-- Provider switches are controlled by:
-  - `STT_PROVIDER`
-  - `LLM_PROVIDER`
-  - `TTS_PROVIDER`
-  - `FRIDAY_PROFILE` (`friday` | `ethanplus`)
-  - `LLM_PROVIDER=ollama` for local-first mode
-  - `OLLAMA_MODEL` and `OLLAMA_BASE_URL` for local model routing
-  - `OLLAMA_CODER_MODEL` for coding/debug tasks
+```text
+user text
+  -> app_new.py
+  -> Brain.process()
+  -> Gemini/OpenAI
+  -> tool calls when needed
+  -> assistant response
+  -> TTS
+```
 
-## Desktop control capability (current)
+Normal microphone flow:
 
-Current MCP tools can:
-- open websites (`open_website`)
-- open common apps (`open_application`)
-- close apps (`close_application`)
-- list running processes (`list_processes`)
-- list/focus desktop windows (`list_windows`, `focus_window`)
-- keyboard and mouse control (`type_text`, `press_hotkey`, `click_screen`)
-- take screenshots (`capture_screenshot`)
-- close focused window (`close_focused_window`)
-- UI template automation (`locate_image_on_screen`, `wait_for_image_on_screen`, `click_image_on_screen`)
-- safety policy (`policy_status`, `arm_desktop_control`, `disarm_desktop_control`)
-- persistent memory (`remember_preference`, `get_preference`, `remember_note`, `recall_notes`)
-- multi-step executor (`execute_desktop_workflow`, `recent_workflow_history`)
-- Ollama watchdog (`ollama_status`, `ollama_recover`)
+```text
+microphone
+  -> sounddevice recording
+  -> SpeechRecognition Google STT
+  -> Brain.process()
+  -> tools/response
+  -> TTS
+```
 
-This means the agent can perform basic desktop actions now, and we can extend to advanced controls incrementally.
+Live audio flow:
 
-## Safety behavior
+```text
+microphone PCM
+  -> Gemini Live
+  -> optional tool calls
+  -> PCM audio response
+  -> speakers
+```
 
-High-risk desktop-changing actions are blocked by default.
-You need to arm controls first, then pass the returned `confirm_token` to sensitive tools.
+## Desktop Capabilities
 
-Voice-friendly mode:
-- Low-risk actions (open/close app, focus/list windows/processes) are allowed directly for smoother voice usage.
-- High-risk actions (typing, clicks, hotkeys, screenshots) still require challenge/token.
+The assistant can currently perform direct desktop actions, including:
 
-Direct Listen mode (UI local microphone):
-- "Notepad ac", "Notepad kapat"
-- "YouTube ac", "Chrome ac"
-- "Acik pencereleri listele"
-- "Saat kac", "Dunyada ne oluyor"
+- `open_application`
+- `close_application`
+- `create_folder`
+- `delete_file`
+- `open_website`
+- `get_weather`
+- `get_turkish_news`
+- `get_world_news`
+- `search_web`
+- `set_volume`, `volume_up`, `volume_down`, `mute_volume`
+- `media_play_pause`, `media_next`, `media_prev`
+- `type_text`
+- `press_key`
+- `click_at`
+- `right_click_at`
+- `look_at_screen`
+- `find_and_click`
+- `write_text_file`
+- `open_and_write_file`
 
-Blackbox diagnostics:
-- Runtime events/errors are written to `.friday_blackbox.jsonl`
-- UI includes "Refresh Blackbox" to inspect latest 20 events
+## Known Gaps
+
+- README previously referenced `server.py`, `agent_friday.py`, `app_qt.py`,
+  `start.ps1`, and `.bat` launchers. Those files are not present in this
+  current folder.
+- `.env.example` still contains some provider options for Ollama, faster-whisper,
+  LiveKit, and MCP that are not wired into the current `app_new.py` path.
+- High-risk desktop actions are currently direct tool calls. There is no active
+  confirmation token or arming policy in the present implementation.
+- `pyautogui.FAILSAFE` is disabled in `desktop.py`, so mouse automation should be
+  used carefully.
+- The speech-to-text button depends on Google STT through `SpeechRecognition`;
+  offline faster-whisper is listed in dependencies but not used by this UI path.
+
+## Suggested Next Steps
+
+- Add a safety/permission layer before destructive or high-risk desktop tools.
+- Align `.env.example` with the actual runtime path or implement the provider
+  switches it documents.
+- Add simple launch scripts for Windows if double-click startup is desired.
+- Add a small smoke test for tool schema generation and basic tool calls.

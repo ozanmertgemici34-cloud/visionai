@@ -60,23 +60,31 @@ def scroll(direction: str, amount: int) -> str:
     return "Kaydırıldı: " + str(direction) + " " + str(n) + " adım."
 
 
+_VISION_MODELS = ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-1.5-flash"]
+
+
 def _gemini_vision(image_bytes, prompt):
-    """Send screenshot to Gemini and get a response. Internal helper."""
+    """Send screenshot to Gemini vision. Tries multiple models with one retry each."""
     from google import genai
     from google.genai import types
     api_key = os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY", "")
     client = genai.Client(api_key=api_key)
-    try:
-        resp = client.models.generate_content(
-            model="gemini-2.5-flash",
-            contents=[
-                types.Part.from_bytes(data=image_bytes, mime_type="image/png"),
-                types.Part.from_text(text=prompt),
-            ],
-        )
-        return resp.text or ""
-    except Exception as e:
-        return "Vision hatası: " + str(e)
+    contents = [
+        types.Part.from_bytes(data=image_bytes, mime_type="image/png"),
+        types.Part.from_text(text=prompt),
+    ]
+    last_err = ""
+    for model in _VISION_MODELS:
+        for attempt in range(2):
+            try:
+                resp = client.models.generate_content(model=model, contents=contents)
+                return resp.text or ""
+            except Exception as e:
+                last_err = str(e)
+                print(f"[Vision] {model} deneme {attempt+1} hata: {e}", flush=True)
+                if attempt == 0:
+                    time.sleep(2)
+    return f"Ekran goruntusu alinamadi (tum modeller denendi): {last_err[:120]}"
 
 
 def look_at_screen(question: str) -> str:

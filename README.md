@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="images/core-gold.png" width="800"/>
+  <img src="images/core-orange.png" width="800"/>
 </p>
 # 🧠 F.R.I.D.A.Y — Personal Desktop AI System
 

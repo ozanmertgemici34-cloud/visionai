@@ -43,6 +43,9 @@ No manual switching. No interruptions.
 ---
 
 ## 🖥️ Interface
+<p align="center">
+  <img src="images/core-yellow.png" width="800"/>
+</p>
 
 
 Instead of a traditional chat interface, F.R.I.D.A.Y. uses a reactive system UI:

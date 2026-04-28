@@ -1,6 +1,6 @@
 # Friday Showcase
 
-Public preview repository for **JarvisBrain_v2 / F.R.I.D.A.Y. Desktop Assistant**.
+Public preview repository for ** F.R.I.D.A.Y. Desktop Assistant**.
 
 This repository is intentionally a showcase, not the full source code. It presents the product vision, UI direction, high-level architecture, safety boundaries, and selected pseudocode-style examples without exposing private prompts, local automation internals, API keys, personal memory data, or security-sensitive desktop control logic.
 

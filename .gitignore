@@ -1,0 +1,25 @@
+# Local/private files
+.env
+*.env
+*.log
+
+# Private FRIDAY runtime data
+.friday_*
+*.db
+*.sqlite
+*.sqlite3
+
+# Python cache
+__pycache__/
+*.py[cod]
+
+# Demo media can be large; add selectively
+assets/raw/
+*.mp4
+*.mov
+
+# OS/editor noise
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

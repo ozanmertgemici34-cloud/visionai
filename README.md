@@ -1,4 +1,6 @@
-
+<p align="center">
+  <img src="images/core-gold.png" width="800"/>
+</p>
 # 🧠 F.R.I.D.A.Y — Personal Desktop AI System
 
 > Not just an assistant. A system that thinks alongside you.

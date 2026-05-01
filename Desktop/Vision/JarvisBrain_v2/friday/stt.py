@@ -101,9 +101,9 @@ def _get_whisper():
 def _record_audio(device: int | None, rate: int) -> np.ndarray | None:
     """VAD ile ses kaydet. Başarısız olursa None döndür."""
     thresh = float(os.getenv("FRIDAY_STT_RMS", "200"))
-    silence_sec = 1.2
-    max_sec = 8.0
-    chunk_secs = 0.3
+    silence_sec = float(os.getenv("FRIDAY_STT_SILENCE_SEC", "0.65"))   # eskiden 1.2
+    max_sec = float(os.getenv("FRIDAY_STT_MAX_SPEECH_SEC", "8.0"))
+    chunk_secs = 0.2   # eskiden 0.3 — daha hızlı VAD döngüsü
 
     n_chunk = int(chunk_secs * rate)
     max_silence = int(silence_sec / chunk_secs)
@@ -168,6 +168,32 @@ def _transcribe_whisper(pcm16: np.ndarray) -> str:
     float_arr = pcm16.astype(np.float32) / 32768.0
     segments, _ = model.transcribe(float_arr, language="tr", beam_size=2)
     return " ".join(s.text.strip() for s in segments).strip()
+
+
+def get_preferred_mic() -> tuple[int | None, int]:
+    """Public helper for voice pipelines that need the chosen mic."""
+    return _find_best_mic()
+
+
+def transcribe_once(
+    device: int | None = None,
+    rate: int | None = None,
+) -> str | None:
+    """Record one utterance and return Turkish text, or None on silence."""
+    dev = device
+    sample_rate = rate
+    if sample_rate is None:
+        dev, sample_rate = _find_best_mic() if device is None else (device, 16000)
+    if sample_rate is None:
+        sample_rate = 16000
+    if dev is None and device is not None:
+        dev = device
+
+    pcm = _record_audio(dev, sample_rate)
+    if pcm is None:
+        return None
+    text = _transcribe_whisper(pcm)
+    return text.strip() or None
 
 
 # ── QObject wrapper ────────────────────────────────────────────────────────────

@@ -13,8 +13,10 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import threading
 import time
+from typing import Iterator
 
 import httpx
 from dotenv import load_dotenv
@@ -22,6 +24,9 @@ from openai import OpenAI
 
 from friday.brain import _OAI_TOOLS, _TOOL_MAP
 from friday.prompt_builder import build_local_system_prompt
+
+# Cümle sonu tespiti: nokta/ünlem/soru işareti ardından boşluk veya satır sonu
+_SENT_SPLIT = re.compile(r'(?<=[.!?…\n])\s+')
 
 load_dotenv()
 
@@ -153,6 +158,63 @@ class LocalLLMClient:
             commit_history=commit_history,
             allow_tools=allow_tools,
         )
+
+    def stream_chat(self, user_input: str) -> Iterator[str]:
+        """Streaming LLM: cümle tamamlandıkça yield eder — düşük gecikmeli TTS için.
+
+        İlk cümle ~300-600ms içinde gelir; TTS o cümleyi seslendiririken LLM
+        sonraki cümleyi üretmeye devam eder. Fallback olarak history commit
+        try/finally ile garantilenir.
+        """
+        system_prompt = build_local_system_prompt(user_input)
+        prior = self._history[-12:]
+        messages: list = [
+            {"role": "system", "content": system_prompt},
+            *prior,
+            {"role": "user", "content": user_input},
+        ]
+
+        buffer   = ""
+        full_text = ""
+        committed = False
+
+        try:
+            stream = self._client.chat.completions.create(
+                model=self._model,
+                messages=messages,
+                temperature=0.2,
+                timeout=self._timeout,
+                stream=True,
+            )
+            for chunk in stream:
+                if not chunk.choices:
+                    continue
+                delta = chunk.choices[0].delta.content or ""
+                buffer    += delta
+                full_text += delta
+
+                # Tamamlanmış cümleleri yield et
+                while True:
+                    m = _SENT_SPLIT.search(buffer)
+                    if not m:
+                        break
+                    sentence = buffer[: m.start() + 1].strip()
+                    buffer   = buffer[m.end():]
+                    if sentence:
+                        yield sentence
+
+            # Kalan parçayı flush et
+            remaining = buffer.strip()
+            if remaining:
+                yield remaining
+
+            self._remember_turn(user_input, full_text.strip())
+            committed = True
+
+        except Exception as exc:
+            print(f"[local] stream_chat hatası: {exc}", flush=True)
+            if not committed and full_text.strip():
+                self._remember_turn(user_input, full_text.strip())
 
     def preview(self, user_input: str) -> str:
         """Run a non-committing, no-tool probe for shadow mode.

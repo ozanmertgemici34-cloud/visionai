@@ -1,64 +1,57 @@
-# Security And Privacy Notes
+# Security and Privacy Guidelines
 
-This showcase repository is designed to be safe for public GitHub visibility.
+Guidelines for what can and cannot be shared publicly from this project.
 
-## Do Not Publish
+---
 
-Never include these files or details in the public showcase:
+## Never Share
 
-- `.env`
-- API keys or tokens
-- Local user paths
-- Personal memory files
-- Real conversation logs
-- Full system prompts
-- Destructive tool implementations
-- Raw desktop automation code
-- Browser/session credentials
-- Command execution internals
-- Private screenshots containing personal data
+| Category | Examples |
+|----------|---------|
+| Credentials | API keys, tokens, passwords, secrets |
+| Configuration | `.env` files, any file containing `API_KEY` or `SECRET` |
+| System prompts | LLM instructions, persona definitions, routing logic |
+| Personal data | Memory database files, conversation logs |
+| Runtime state | Session files, cached responses, model outputs |
+| Internal logic | Tool implementation code, routing thresholds, circuit breaker config |
+| Screenshots | Anything showing memory contents or personal information |
 
-## Sensitive Runtime Files
+---
 
-The private project may produce local runtime files. Keep them out of the public repository:
+## Safe to Share
 
-```text
-.friday_memory.json
-.friday_memory.db
-.friday_*.json
-.friday_*.jsonl
-.friday_neural_memory/
+- High-level architecture descriptions (like `ARCHITECTURE.md`)
+- Capability lists and feature status (like `ROADMAP.md`)
+- Simplified pseudocode that illustrates a concept without revealing implementation
+- General design decisions and tradeoffs
+- Technology stack (what tools/libraries are used, not how they are configured)
+
+---
+
+## Pre-Publication Checklist
+
+Before pushing any file to a public branch:
+
+- [ ] No API keys, tokens, or passwords
+- [ ] No `.env` file or partial `.env` content
+- [ ] No system prompt text
+- [ ] No memory database contents
+- [ ] No full tool implementation code
+- [ ] No screenshots with personal data visible
+- [ ] All code samples clearly labeled as pseudocode or simplified examples
+
+---
+
+## Runtime Files to Exclude
+
+Always verify these are absent before committing:
+
+```
 .env
+*.backup.json
+.friday_*.json
 *.log
+__pycache__/
+*.pyc
+.friday_app_cache.json
 ```
-
-## Public Sharing Rules
-
-Use public-safe language:
-
-- Say "desktop automation tools" instead of publishing exact automation code.
-- Say "provider-based LLM routing" instead of exposing provider prompts.
-- Say "persistent memory layer" instead of publishing real memories.
-- Say "tool safety layer planned" if permission gating is still in progress.
-
-## Recommended Safety Message
-
-Use this note in the public README or release page:
-
-> The full source code is private while security controls, local action permissions, and packaging are being developed. This repository is a technical and visual preview only.
-
-## Before Pushing To GitHub
-
-Check the showcase folder manually:
-
-```powershell
-Get-ChildItem -Recurse FridayShowCase
-```
-
-Then search for accidental secrets:
-
-```powershell
-Select-String -Path FridayShowCase\* -Pattern "API_KEY","SECRET","TOKEN","sk-","AIza" -Recurse
-```
-
-If anything private appears, remove it before publishing.

@@ -1,101 +1,94 @@
-# Friday Showcase
+# F.R.I.D.A.Y. — Desktop AI Assistant
 
-Public preview repository for ** F.R.I.D.A.Y. Desktop Assistant**.
+**F**emale **R**eplacement **I**ntelligent **D**igital **A**ssistant **Y**outh
 
-This repository is intentionally a showcase, not the full source code. It presents the product vision, UI direction, high-level architecture, safety boundaries, and selected pseudocode-style examples without exposing private prompts, local automation internals, API keys, personal memory data, or security-sensitive desktop control logic.
+A personal AI assistant for Windows — built around Turkish-first voice interaction, persistent memory, and real desktop control. Inspired by Tony Stark's FRIDAY, designed for daily use.
 
-## What Is JarvisBrain_v2?
+---
 
-JarvisBrain_v2 is a Windows-focused desktop AI assistant inspired by cinematic systems like F.R.I.D.A.Y. and JARVIS. It combines a native desktop interface, voice interaction, long-term memory, LLM reasoning, text-to-speech, live audio mode, and controlled desktop tools.
+## What It Does
 
-The full project is developed privately while the public preview focuses on safe technical storytelling.
+FRIDAY listens, thinks, remembers, and acts. You talk to it (or type), it responds in natural Turkish, and it can reach into your desktop, the web, or its own memory to give you a useful answer.
 
-## Feature Preview
+- **Talks back** — Natural Turkish voice responses using Microsoft Neural TTS, streamed sentence by sentence so the first word plays within ~1 second of the model finishing
+- **Listens continuously** — Voice activity detection keeps the mic open, transcription happens automatically when you speak
+- **Remembers you** — Every conversation is analyzed in the background; preferences, facts, goals, and context are extracted and stored persistently
+- **Uses tools** — Web search, system stats, weather, window management, clipboard, file operations, diagram generation, and more
+- **Routes intelligently** — Simple conversational queries go to a fast local model; research, tool use, and complex questions go to a cloud model
+- **Acts proactively** — Greets you on startup with the current time and system status, reminds you when things are due, checks in after long silences
 
-- Native desktop assistant experience.
-- Turkish-first conversational flow.
-- Text and microphone command input.
-- Gemini/OpenAI-style reasoning pipeline.
-- Optional live audio interaction mode.
-- Persistent personal memory layer.
-- Desktop automation tools with planned safety controls.
-- Holographic QML interface experiments.
-- Voice response through a TTS fallback chain.
+---
 
-## Architecture Preview
+## Interface
 
-```text
-User
-  -> Desktop UI
-  -> Assistant Brain
-  -> LLM Provider
-  -> Memory Layer
-  -> Tool Router
-  -> Desktop Actions / Web / Files / Voice
-  -> Response + TTS
+A custom Qt/QML desktop interface with a full-screen animated HUD. At the center is a live orb — an organic, breathing shape that reacts to voice activity, speaks with glowing rings when talking, and pulses quietly when idle. The conversation appears as a scrollable log alongside it.
+
+No web browser. No Electron. Native Windows application.
+
+---
+
+## Voice Pipeline
+
+```
+Microphone
+    ↓  (webrtcvad — detects when you start and stop speaking)
+Audio capture
+    ↓  (Turkish-locked Whisper via Groq cloud — fast, accurate)
+Transcribed text
+    ↓
+LLM Router
+    ↓  (local model for simple queries / cloud model for complex ones)
+Response text  →  Memory extraction (background)
+    ↓
+Streaming TTS  (sentence N plays while sentence N+1 is being generated)
+    ↓
+Speaker
 ```
 
-The private implementation includes provider-specific orchestration, tool schemas, local environment handling, UI integration, and personal runtime data. Those details are not included in this showcase.
+Barge-in is supported: speak while FRIDAY is talking and it stops immediately.
 
-## Memory Preview
+---
 
-The assistant keeps structured long-term memories such as:
+## Memory System
 
-- User preferences.
-- Project context.
-- Important events.
-- Goals and plans.
-- Conversation summaries.
+FRIDAY maintains a personal memory database organized into five categories:
 
-The real memory data is private and never shipped in this repository.
+| Category | What's stored |
+|----------|--------------|
+| `preference` | Things you like, dislike, or prefer |
+| `fact` | Persistent facts about you (hardware, location, background) |
+| `goal` | Plans, intentions, things you want to do |
+| `event` | Things that happened |
+| `context` | Projects, tools, technologies you work with |
 
-## Safe Pseudocode Example
+Memories are extracted automatically after each conversation — no manual tagging needed. Each entry has an importance score. The most relevant memories for any given query are surfaced into the model's context window at inference time.
 
-```python
-class MemoryStore:
-    def remember(self, content: str, category: str, importance: float) -> str:
-        """Store a safe, user-approved memory item."""
-        ...
+---
 
-    def recall(self, query: str, limit: int = 5) -> list[str]:
-        """Return relevant memories for assistant context."""
-        ...
-```
+## Tool System
 
-This is not production code. It only communicates the design shape.
+FRIDAY can call tools mid-conversation. Tools are grouped by category:
 
-## Repository Contents
+- **Web** — search, read pages, get news (Turkish and international), get weather
+- **System** — CPU/RAM/disk stats, process list, battery status
+- **Desktop** — open/close/minimize/maximize applications and windows, type text, click, take screenshots
+- **Files** — read, write, create, delete files and folders
+- **Clipboard** — read and write the clipboard; summarize, translate, or rewrite clipboard content
+- **Memory** — explicit remember/recall/forget commands
+- **Diagrams** — generate flowcharts, mind maps, sequence diagrams, and more from natural language
 
-```text
-FridayShowCase/
-  README.md
-  ARCHITECTURE.md
-  SECURITY.md
-  ROADMAP.md
-  NOTICE.md
-  preview/
-    memory_preview.py
-```
+All tool calls happen within the same conversation turn — FRIDAY calls the tool, reads the result, and continues the response seamlessly.
 
-## Screenshots And Demo
+---
 
-Add screenshots or short GIFs here when ready:
+## Language
 
-```text
-assets/
-  screenshot-home.png
-  holographic-ui-demo.gif
-```
+FRIDAY speaks and understands Turkish exclusively. The STT pipeline is locked to Turkish, the LLM is instructed to respond only in Turkish, and all tool outputs are summarized in Turkish before being spoken.
 
-Recommended public media:
+---
 
-- Main assistant window.
-- Holographic QML core UI.
-- Short voice interaction demo.
-- Memory inspector concept mockup.
+## What This Repo Is
 
-Avoid sharing local paths, personal data, API keys, terminal logs, or real memory files.
+This folder is a public-facing showcase of the project's current capabilities, design decisions, and direction. The full source code — including the prompting framework, routing logic, memory engine, tool implementations, and personal configuration — is kept private.
 
-## Status
-
-This is a public showcase. The complete assistant source remains private during active development, safety hardening, and packaging work.
+> *"Most of what FRIDAY does is invisible. This is the part we can show."*

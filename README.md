@@ -10,7 +10,7 @@
 
 <br/>
 
-![Status](https://img.shields.io/badge/Status-Beta%20Available-brightgreen?style=for-the-badge)
+![Status](https://img.shields.io/badge/Status-Early%20Access%20Soon-gold?style=for-the-badge)
 ![Platform](https://img.shields.io/badge/Platform-Windows%2011-0078D4?style=for-the-badge&logo=windows)
 ![AI](https://img.shields.io/badge/AI-Multi--Model%20Orchestration-8A2BE2?style=for-the-badge)
 
@@ -239,15 +239,15 @@ FRIDAY Synapse is **fully bilingual** — Turkish and English are both supported
 | English language support | ✅ Complete |
 | Telegram remote access | ✅ Complete |
 | First-run setup wizard | ✅ Complete |
-| Beta release packaging | ✅ Available |
+| Release packaging | 🔄 In progress |
 
 ---
 
 ## Availability
 
-FRIDAY Synapse **beta is now available** for early users.
+FRIDAY Synapse is **not publicly released yet.**
 
-Get access by reaching out directly — beta slots are limited.
+An **early access version** is coming. Follow this repository to stay updated.
 
 <div align="center">
 

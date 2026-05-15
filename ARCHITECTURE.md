@@ -1,79 +1,168 @@
-# FRIDAY Synapse Architecture v1.0
+# FRIDAY Synapse Architecture
 
-> *"Intelligence is not a single point. It is the convergence of Soul, Mind, and Body."*
+FRIDAY Synapse is the architecture behind a private Windows-native AI desktop assistant. It is built around a modular event-driven system where voice, memory, reasoning, tools, and user adaptation communicate through a shared core.
 
----
-
-## The Awareness Ecosystem Philosophy
-FRIDAY Synapse v1.0 moves beyond the "Stone" collection. It is now designed as an **Awareness Ecosystem**. The architecture is structured into four distinct cognitive layers that run in a continuous loop through a unified event bus.
-
-This architecture ensures:
-- **Temporal Continuity** — Sessions are no longer isolated; they are arcs.
-- **Predictive Intent** — The system understands the next step before it's asked.
-- **Emotional Resonance** — Long-term user motivation and triggers are modeled.
+This document describes the public architecture without exposing private runtime source code or sensitive automation details.
 
 ---
 
-## The Convergence Loop (Message Journey)
-The core of the system is the **BrainCore Event Bus**. Every interaction triggers a 4-layer awareness pipeline.
+## Design Principles
 
-### Layer 1: Strategic Intelligence (ORACLE)
-**Goal:** Optimal model selection and task routing.
-- Analyzes query complexity (Trivial → Deep) and urgency.
-- Executes weighted oylama (voting) via specialized sub-stones.
-- Routes to the most efficient LLM (gpt-4, o4-mini, or local fallback).
+### 1. Local-First Presence
 
-### Layer 2: Predictive Synthesizer (SPECTRE)
-**Goal:** Proactive intent detection.
-- Synthesizes current conversation arcs to predict the next logical user step.
-- Prepares tool contexts or information bridges before the user asks for them.
-- Reduces cognitive friction by suggesting relevant memories or actions.
+FRIDAY is designed to live on the user's machine, not only inside a browser tab. The assistant can interact with the desktop, remember long-term context, and keep a persistent relationship with the user's workflow.
 
-### Layer 3: Historical Narrative (THE ARC & ARCHIVE)
-**Goal:** Longitudinal awareness and temporal wisdom.
-- **THE ARC:** Tracks "Episodes" and "Decisions" across weeks and months. Detects "Ghost Threads" (reappearing narrative loops).
-- **ARCHIVE:** Manages the Emotional Signature. Upgrades memories through a hierarchy: Short-Term → Medium-Term → Longitudinal.
+### 2. Event-Driven Modularity
 
-### Layer 4: Sensory Action (VIGIL & TOOLS)
-**Goal:** Real-time state tracking and physical execution.
-- **VIGIL (Tide, Compass, Ember, Mirror):** Monitors if the user is active, tracks multi-turn goals, and detects assistant confidence.
-- **ACTION STONES:** Win32 API, PyAutoGUI, and native Windows tool integration.
+The runtime is organized around a central event bus. Components emit and consume events such as `USER_SPOKE`, `REQUEST_CONTEXT`, `CONTEXT_PROVIDED`, `SPEAK_TEXT`, and `TURN_COMPLETED`.
+
+This keeps the assistant extensible: voice, memory, reasoning, proactive monitoring, and UI updates can evolve independently.
+
+### 3. Context Before Reasoning
+
+The assistant does not send a raw user message directly to a model. It first builds context from memory, recent sessions, narrative history, user-state signals, and comprehension patterns.
+
+### 4. Safe Multi-Model Routing
+
+Simple safe requests can be handled locally. Tool use, current information, desktop control, and deeper analysis go through the cloud reasoning path with fallbacks.
 
 ---
 
-## BrainCore Event Bus
-The central nervous system of FRIDAY Synapse remains event-driven but now handles **context-enriched payloads**.
+## High-Level Runtime Flow
 
-```
-USER_SPOKE
-    │
-    ├── 1. Strategic Routing (ORACLE)
-    ├── 2. Intent Prediction (SPECTRE)
-    ├── 3. Narrative Retrieval (THE ARC)
-    ├── 4. Emotional Context (ARCHIVE)
-    ├── 5. Real-Time State (VIGIL)
-    │
-    └── FINAL CONVERGENCE → Hyper-Contextual System Prompt
+```text
+User text or voice
+      |
+      v
+UI Bridge / VoiceStone
+      |
+      v
+BrainCore Event Bus
+      |
+      +--> EchoStone builds memory and comprehension context
+      |
+      +--> LogicStone invokes SafeBrainRouter
+      |
+      +--> Brain selects model, streams response, and calls tools
+      |
+      +--> Tools interact with Windows, files, web, voice, and apps
+      |
+      +--> Memory and awareness layers learn from the completed turn
+      |
+      v
+UI response + TTS response
 ```
 
 ---
 
-## Memory Hierarchy (v1.0 Upgrade)
-Memory is no longer a simple JSON store. It is now a **Temporal Hierarchy**:
+## Core Layers
 
-1.  **Short-Term (THE ARC):** Active episodes and immediate session context. (0-2 weeks)
-2.  **Medium-Term (ARCHIVE):** Summarized project progress and recurring topics. (2-8 weeks)
-3.  **Longitudinal (ARCHIVE):** Core user facts, emotional motivators, and project history. (2+ months)
-4.  **Emotional Signature:** Persistent tracking of user frustration triggers and engagement styles.
+### Interface Layer
+
+The desktop UI is built with PySide6 and QML. It provides the main chat surface, first-run setup wizard, settings panel, provider configuration, file drop handling, and status updates.
+
+### Event Layer
+
+`BrainCore` is the central dispatcher. It registers Stone modules, initializes them, and distributes targeted or broadcast events.
+
+Key concepts:
+
+- `StoneEvent`: standard payload for communication
+- `BaseStone`: lifecycle contract for modules
+- Targeted events for direct module communication
+- Broadcast events for multi-module observation
+
+### Reasoning Layer
+
+The reasoning path is split between `SafeBrainRouter` and `Brain`.
+
+`SafeBrainRouter` decides whether a request is eligible for local handling. It avoids local routing for risky, action-heavy, web-current, vision, clipboard, or app-control tasks.
+
+`Brain` handles:
+
+- Streaming model responses
+- OpenAI primary path
+- Gemini and Groq fallback paths
+- Tool schema generation
+- Parallel tool execution
+- Conversation compression
+- Integration with ORACLE, SPECTRE, THE ARC, ARCHIVE, SelfModel, PolicyStore, BeliefStore, and GoalEngine
+
+### Memory Layer
+
+FRIDAY uses multiple memory surfaces:
+
+- Short-term session log
+- Persistent category memory
+- Episodic narrative memory
+- Longitudinal archive memory
+- Behavioral and style memory
+
+The base memory store supports facts, preferences, events, goals, and context. Retrieval uses relevance, importance, and recency scoring.
+
+### Awareness Layer
+
+The awareness layer adds proactive and self-reflective signals:
+
+- `ORACLE`: task complexity and model routing
+- `SPECTRE`: next-step prediction
+- `VIGIL`: real-time user-state and goal tracking
+- `THE ARC`: episode and decision continuity
+- `ARCHIVE`: long-term emotional and longitudinal memory
+
+### Personality Layer
+
+FRIDAY adapts over time through:
+
+- `MindStone`: communication style and verbosity
+- `EchoStone`: comprehension and overload signals
+- `BondStone`: user-world model
+- `IntuitionStone`: likely conversation direction
+
+These modules help the assistant respond in a way that fits the user instead of using the same generic tone forever.
+
+### Action Layer
+
+The tool system gives FRIDAY controlled access to desktop functions:
+
+- Application launch and closing
+- Window management
+- Clipboard operations
+- File and folder operations
+- Web search and page reading
+- Weather, news, and system stats
+- Steam, Telegram, reminders, notes, diagrams, and code execution
+
+The public showcase does not expose sensitive automation code or personal runtime data.
 
 ---
 
-## Key Design Decisions in v1.0
-- **Zero-Dependency Awareness:** All core awareness modules (Oracle, Spectre, etc.) run using Python standard library for maximum stability.
-- **Parallel Context Extraction:** Narrative and state extraction (The Arc absorb / Archive upgrade) runs asynchronously after the response is sent.
-- **Adaptive Style Injection:** MindStone constantly tunes the LLM's frequency to the user's observed cognitive pace.
-- **Proactive Silence Surface:** The system uses the "Ember" state to surface unresolved thoughts during idle periods.
+## Model Strategy
+
+The private runtime supports a multi-provider strategy:
+
+| Path | Purpose |
+|---|---|
+| Local LLM | Short, safe, text-only requests |
+| Fast cloud model | Daily reasoning, tool calls, general tasks |
+| Deep reasoning model | Analysis, debugging, planning, complex tasks |
+| Gemini fallback | Provider resilience |
+| Groq fallback | Secondary resilience path |
+
+The exact model choices can evolve with the runtime. The architecture is designed around routing policy rather than a single hard-coded model.
 
 ---
 
-*Last updated: May 12, 2026*
+## Privacy Boundary
+
+FRIDAY stores personal context locally in runtime files. Those files are intentionally excluded from this showcase.
+
+The public repository describes how the system is structured. It does not publish private memory, session logs, API keys, desktop automation internals, or personal assistant configuration.
+
+See [PRIVACY.md](PRIVACY.md).
+
+---
+
+## Last Updated
+
+May 2026

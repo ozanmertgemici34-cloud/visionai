@@ -1,54 +1,108 @@
-# FRIDAY Synapse Roadmap v1.0
+# FRIDAY Synapse Roadmap
 
-> *"What's done, what's in progress, and where the Singularity is going."*
-
----
-
-## ✅ v1.0 Milestone: The Awareness Complete
-The core cognitive architecture of FRIDAY Synapse is now **Stable and Complete**.
-
-### 🧩 Awareness & Intelligence (8-Layer Core)
-- **ORACLE** — Intelligent multi-model routing (gpt-4, o4-mini, Gemini) ✅
-- **SPECTRE** — Proactive user intent and action prediction ✅
-- **ARCHIVE** — Longitudinal emotional and hierarchical memory ✅
-- **THE ARC** — Long-term narrative episode and decision tracking ✅
-- **VIGIL (Tide, Compass, Ember, Mirror)** — Real-time state tracking ✅
-- **MindStone & EchoStone** — Adaptive persona and behavior analysis ✅
-
-### 🎙️ Voice & Desktop Integration
-- **Continuous VAD-based listening** (Low-latency) ✅
-- **Neural TTS Streaming** (First-sentence playback) ✅
-- **50+ Integrated Desktop Tools** (OS, Apps, Web) ✅
-- **Barge-in & Echo Suppression** (Human-like interaction) ✅
-- **Turkish & English Bilingual Support** ✅
-
-### 🖥️ Distribution & Setup
-- **One-click Setup Wizard** (Qt 6 / QML native) ✅
-- **BYOK (Bring Your Own Key) Infrastructure** ✅
-- **Telegram Remote Access** (Global PC Control) ✅
-- **Cross-Platform API Fallbacks** (Circuit Breaker) ✅
+This roadmap tracks the public-facing direction of FRIDAY Synapse. The private Windows runtime evolves separately from this showcase repository.
 
 ---
 
-## 🚀 The Next Horizon: Post-v1.0 Goals
+## Current Phase: Private Beta Showcase
 
-### 🗓️ Short-Term (Continuous Integration)
-- **Enhanced Memory Review UI** — View and prune long-term Archive data.
-- **Voice Persona Calibration** — Per-user voice pitch and speed tuning.
-- **App-Specific Context Profiles** — Change behavior based on the foreground app.
+The current goal is to present FRIDAY clearly without exposing sensitive code or private user data.
 
-### 🌐 Medium-Term (Autonomous Sync)
-- **Deep Narrative Synthesis** — Assistant generates weekly "Growth Reports".
-- **Multi-Step Autonomous Planner** — Execute long tasks while you are "Away".
-- **Cross-Device Context Bridge** — Sync awareness between Desktop and Mobile.
+Completed in the showcase:
 
-### 🌌 Long-Term (The Sentient Partner)
-- **Predictive Proactive Briefing** — Prepare data before you open the PC.
-- **Collective Intelligence** — Shared awareness across multiple local instances.
-- **Native On-Device LLM Fine-Tuning** — Personalized local weights.
+- Public architecture narrative
+- High-level module map
+- Privacy and public/private boundary
+- Product positioning as a Windows-native assistant
+- Links to public ecosystem modules
+
+Implemented in the private runtime:
+
+- PySide6/QML desktop shell
+- Voice input and neural TTS
+- BrainCore event architecture
+- Multi-model routing and fallback strategy
+- Persistent memory and session history
+- Desktop, web, file, system, Steam, Telegram, and reminder tools
+- Proactive and adaptive cognition modules
 
 ---
 
-FRIDAY Synapse is no longer just an AI tool; it is a **persistent awareness ecosystem**. Every turn makes it smarter, every session makes it more personal, and every decision makes it more *yours*.
+## Near-Term Priorities
 
-*Last updated: May 12, 2026*
+### 1. Showcase Quality
+
+- Add polished screenshots and short product clips
+- Add a concise feature matrix
+- Add better architecture visuals
+- Add a security and privacy explainer
+- Add Turkish documentation entry point
+
+### 2. Runtime Stability
+
+- Keep the private runtime aligned with the public architecture
+- Improve dependency and setup clarity
+- Strengthen import, tool registry, and smoke tests
+- Separate design/spec documents from executable Python modules
+
+### 3. Public Module Strategy
+
+- Clarify which cognition modules are public
+- Package standalone modules with clean examples
+- Keep sensitive desktop-control runtime private
+- Publish conceptual documentation without leaking implementation details
+
+---
+
+## Medium-Term Goals
+
+### Memory Review Surface
+
+Give the user a safe way to inspect, prune, and correct long-term assistant memory.
+
+### Better Proactive Briefings
+
+Improve startup briefings, idle thoughts, and unresolved-topic surfacing so the assistant feels useful without becoming noisy.
+
+### App-Aware Behavior
+
+Let FRIDAY adapt its behavior based on the foreground application and active workflow.
+
+### Voice Calibration
+
+Add user-level preferences for speaking speed, voice personality, and interruption behavior.
+
+---
+
+## Long-Term Direction
+
+### Personal AI Operating Layer
+
+FRIDAY should become a reliable local assistant layer across desktop work: planning, memory, automation, research, and voice.
+
+### Cross-Device Context
+
+Explore safe ways to sync context between desktop and mobile surfaces without exposing private memory.
+
+### Local Intelligence Expansion
+
+Move more low-risk reasoning and memory tasks to local models for cost, privacy, and latency benefits.
+
+---
+
+## Non-Goals
+
+This project is not trying to become:
+
+- A generic chatbot clone
+- A public dump of private assistant code
+- A cloud-only SaaS assistant
+- A tool that hides unsafe automation behind vague claims
+
+FRIDAY's direction is personal, local-first, privacy-aware, and deeply integrated with the user's own machine.
+
+---
+
+## Last Updated
+
+May 2026
